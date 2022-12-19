@@ -1,0 +1,25 @@
+time:
+  date_range: ['<START DATE>', '<END DATE>'] #Dates in format 'YYYY-MM-DD'
+
+ga:
+  views:
+    -
+      view_id: 'GA VIEW ID'
+      dimensions: ['ga:date', '<GA API DIMENSIONS>']
+      metrics: ['<GA API METRICS>']
+      order: ['date', 'ASCENDING']
+
+gcp:
+  project_id: <GCP PROJECT ID>
+  bq:
+    dataset: 
+      name: <BQ DATASET NAME>
+      location: <BQ DATASET LOCATION>
+      expiration_days: <DATA EXPIRATION IN DAYS>
+    table:
+      name: <BQ TABLE NAME>
+      write_disposition: <BQ WRITE DISPOSITION>
+
+options:
+  slow_fetch: <TRUE OR FALSE>  #For large, complicated API requests this bypasses some API hacks that may result in 500 errors.  For smaller queries, leave this as FALSE for quicker data fetching. 
+  anti_sample_batches: <SAMPLE BATCHES IN DAYS> #set to number of days per batch. # default is 1 day.
