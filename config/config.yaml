@@ -1,3 +1,7 @@
+auth_path: 
+  client_token: <CLIENT SECRET JSON>
+  service_account: <SERVICE ACCOUNT JSON>
+
 time:
   date_range: ['<START DATE>', '<END DATE>'] #Dates in format 'YYYY-MM-DD'
 
@@ -11,6 +15,8 @@ ga:
 
 gcp:
   project_id: <GCP PROJECT ID>
+  gcs:
+    bucket_name: <BUCKET NAME>
   bq:
     dataset: 
       name: <BQ DATASET NAME>

@@ -6,23 +6,30 @@ library(yaml)
 library(googleCloudStorageR)
 
 ##### Global Vars ####
-clientToken <- 'auth/ga_client_secret.json'
-serviceAccount <- 'auth/datascience_service_account.json'
+# Read initial config file
+configFile <- 'config/config.yaml'
+config <- read_yaml(configFile)
 
-#### Pubsub Auth ####
+# Get base (authentication) info from config 
+clientToken <- config$auth_path$client_token
+serviceAccount <- config$auth_path$service_account
+bucket <- config$gcp$gcs$bucket_name
 
+#### GCS ####
+# Authenticate to Google Cloud Storage
 gcs_auth(json_file = serviceAccount, token = clientToken)
 
-configFile <- 'config/config.yaml'
+# Get Updated Config File from GCS
 fetch <- gcs_get_object(
-  object_name = paste0('gs://ua_past_data/',configFile), 
+  object_name = paste0('gs://',bucket,'/',configFile), 
   saveToDisk = configFile,
   overwrite = TRUE
 )
 
-config <- read_yaml(configFile)
+#### Run Main ####
+config <- read_yaml(configFile) #Refresh config
 
-
+# Get Universal Analytics data and send to BigQuery
 ua_past_data(
   auth = auth(clientToken, serviceAccount),
   slow_fetch = config$options$slow_fetch,

@@ -1,8 +1,10 @@
-# API
+#### FUNCTION PACKAGES #####
+#API
 library(googleAuthR)
 library(googleAnalyticsR)
 library(bigrquery)
 
+#### MAIN FUNCTION ####
 
 ua_past_data <- function(
     auth, 
@@ -91,11 +93,10 @@ ua_past_data <- function(
       
   }
   
-  return(gaData)
 }
 
 
-
+#### REST OF FUNCTIONS ####
 
 auth <- function(client_token,service_account){
   tryCatch({
@@ -114,12 +115,6 @@ auth <- function(client_token,service_account){
   })
 }
 
-"
-project_id <- config$gcp$project_id
-dataset <- config$gcp$bq$dataset$name
-date_range <- config$time$date_range
-table <- config$gcp$bq$table$name
-"
 
 # Check to see if the BQ table already exists and query the date range. 
 # Change config dates according to this - works really well with working 
@@ -281,21 +276,6 @@ send_data_to_bq <- function(
 }
 
 
-"
-view_id = '122203307'
-date_range = c(config$time$date_range[1], config$time$date_range[2])
-dimensions = eachView$dimensions
-metrics = eachView$metrics
-order = eachView$order
-
-dataset = config$gcp$bq$dataset$name
-project_id = config$gcp$project_id
-write_disposition = config$gcp$bq$table$write_disposition
-location = config$gcp$bq$dataset$location
-expiration = config$gcp$bq$dataset$expiration_days
-table = config$gcp$bq$table$name
-anti_sample_batches = config$options$anti_sample_batches
-"
 get_ga_data_and_send_to_bq_batches <- function(
     
     view_id, 
