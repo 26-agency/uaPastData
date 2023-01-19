@@ -1,10 +1,8 @@
-#### FUNCTION PACKAGES #####
-#API
+# API
 library(googleAuthR)
 library(googleAnalyticsR)
 library(bigrquery)
 
-#### MAIN FUNCTION ####
 
 ua_past_data <- function(
     auth, 
@@ -12,33 +10,36 @@ ua_past_data <- function(
     anti_sample_batches = NULL
 ){
   
+  # Run a single instance of getting UA data and sending to BQ table.
+  "
+  ga_view = config$ga$views[[1]]
+  bq_table_name = config$gcp$bq$table$names[1]
+  fetch = 'slow'
+  anti_sample_batches = config$options$anti_sample_batches
+  "
   
-  # Authenticate to GA and BQ
-  auth
-  
-  
-  if( (!slow_fetch || is.null(slow_fetch)) & is.null(anti_sample_batches) ) {
-    # Get GA data and send to BQ for each View
-    for (eachView in config$ga$views) {
-      
-      viewId <- eachView$view_id
+  single_table_ua_past_data  <- function (ga_view, bq_table_name, fetch) {
+    
+    
+    if (fetch == 'fast') {
+      viewId <- ga_view$view_id
       
       # Check to see if the BQ table already exists and query the date range. Change config dates according to this - works really well with working against GA API breaking with pubsub
       startDate <- bq_check_and_reset_table_date_range(
         project_id=config$gcp$project_id, 
         dataset=config$gcp$bq$dataset$name,
         view_id = viewId,
-        start_date=config$time$date_range, 
-        table=NULL )
+        start_date=config$time$date_range[1], 
+        table=bq_table_name )
       
       
       # Get Ga data
       gaData <- get_ga_data(
         view_id = viewId,
         date_range = c(startDate, config$time$date_range[2]),
-        dimensions = eachView$dimensions,
-        metrics = eachView$metrics,
-        order = eachView$order
+        dimensions = ga_view$dimensions,
+        metrics = ga_view$metrics,
+        order = ga_view$order
       )
       
       send_data_to_bq(
@@ -49,54 +50,124 @@ ua_past_data <- function(
         write_disposition = config$gcp$bq$table$write_disposition,
         location = config$gcp$bq$dataset$location,
         expiration = config$gcp$bq$dataset$expiration_days,
-        table = config$gcp$bq$table$name
+        table = bq_table_name
       )
+    } else { # fetch== 'slow'
       
-      
-    }
-    
-    
-  } else {
-    
-    for (eachView in config$ga$views) {
-      
-      viewId <- eachView$view_id
+      viewId <- ga_view$view_id
       
       
       startDate <- bq_check_and_reset_table_date_range(
         project_id=config$gcp$project_id, 
         dataset=config$gcp$bq$dataset$name, 
-        start_date=config$time$date_range,
+        start_date=config$time$date_range[1],
         view_id = viewId, 
-        table=NULL )
+        table=bq_table_name)
       
       
       get_ga_data_and_send_to_bq_batches(
         view_id = viewId,
         date_range = c(startDate, config$time$date_range[2]),
-        dimensions = eachView$dimensions,
-        metrics = eachView$metrics,
-        order = eachView$order,
+        dimensions = ga_view$dimensions,
+        metrics = ga_view$metrics,
+        order = ga_view$order,
         
         dataset = config$gcp$bq$dataset$name,
         project_id = config$gcp$project_id,
         write_disposition = config$gcp$bq$table$write_disposition,
         location = config$gcp$bq$dataset$location,
         expiration = config$gcp$bq$dataset$expiration_days,
-        table = config$gcp$bq$table$name,
+        table = bq_table_name,
         anti_sample_batches = anti_sample_batches
         
         
       ) 
+    }
+  }
+  
+  
+  # Authenticate to GA and BQ
+  auth
+  
+  #Decide whether to slow fetch or not
+  if (typeof(slow_fetch) == 'NULL' & typeof(anti_sample_batches) == 'NULL') {
+    if( is.null(slow_fetch) & is.null(anti_sample_batches) ) {
+      fetch = 'fast'
+    } else {fetch = 'slow'}  
+  } else if (
+    typeof(slow_fetch) == 'NULL' & 
+    typeof(as.numeric(anti_sample_batches)) == 'double'
+  ){
+    if( is.null(slow_fetch) & !anti_sample_batches) {
+      fetch = 'fast'
+    } else {fetch = 'slow'}
+  } else if (
+    typeof(slow_fetch) == 'logical' & 
+    typeof(anti_sample_batches) == 'NULL'
+  ) {
+    if( !slow_fetch & is.null(anti_sample_batches)) {
+      fetch = 'fast'
+    } else {fetch = 'slow'}
+  } else if (
+    typeof(slow_fetch) == 'logical' & 
+    typeof(as.numeric(anti_sample_batches)) == 'double'
+  ) {
+    if( !slow_fetch & !anti_sample_batches) {
+      fetch = 'fast'
+    } else {fetch = 'slow'}
+  }
+  
+  
+  # Decide how to get and send data based on config.
+  viewsInfo <- config$ga$views #Information about each view 
+  viewIds <- c() # Get all the view Ids in a vector
+  for (eachView in viewsInfo) { viewIds <- append(viewIds, eachView$view_id) }
+  bqTables <- config$gcp$bq$table$names # BQ dataset names
+  if (length(viewsInfo) == length(bqTables)) {
+    
+    # Get GA data from each view and send to each BQ dataset retrospectively to the config    
+    for (eachTable in 1:length(config$ga$views)) {
+      
+      eachBqDataset <- config$gcp$bq$table$names[[eachTable]]
+      eachView <- config$ga$views[[eachTable]]
+      
+      single_table_ua_past_data(
+        ga_view = eachView, 
+        bq_table_name = eachBqDataset, 
+        fetch= fetch
+      )
       
     }
+    
+  } else if (var(viewIds) == 0 && length(bqTables) == 1) {
+    bqDataset <- bqTables   
+    # Get GA data and send to a BQ dataset  for each View   
+    for (eachTable in 1:length(config$ga$views)) {
       
+      eachView <- config$ga$views[[eachTable]]
+      
+      single_table_ua_past_data(
+        ga_view = eachView, 
+        bq_table_name = bqDataset, 
+        fetch = fetch
+      )
+      
+    }
+    
+    
+  } else {
+    stop(
+      'Either a) the number of GA views for API pull must be(retrospectively) 
+      the same as the number of BQ datasets or b) there is only one BQ dataset 
+      with multiple views, all having the same View ID.'
+    )
   }
+  
   
 }
 
 
-#### REST OF FUNCTIONS ####
+
 
 auth <- function(client_token,service_account){
   tryCatch({
@@ -151,10 +222,9 @@ bq_check_and_reset_table_date_range <- function(
           sep = ''
         )
         latestDate <- bq_table_download(bq_project_query(project_id,sql))
-        latestDate <- latestDate[1] 
         
-        startDate <- latestDate
-         
+        startDate <- latestDate$date
+        
       } else {
         startDate <- start_date        
       }
@@ -169,6 +239,7 @@ bq_check_and_reset_table_date_range <- function(
   
 }
 
+
 get_ga_data <- function(
     view_id, 
     date_range = c(start_date, end_date), 
@@ -179,16 +250,16 @@ get_ga_data <- function(
   #Get GA Data (this is out of loop for a more efficient call but will break if there are more than 10 metrics because of API limits)
   start_date <- date_range[1]
   end_date <- date_range[2]
-    gaData <- google_analytics(
-      viewId = view_id,
-      date_range = c(start_date, end_date),
-      dimensions = dimensions,
-      metrics = metrics,
-      order = list(
-        order_type(order[1], order[2])
-      ),
-      anti_sample = TRUE
-    ) 
+  gaData <- google_analytics(
+    viewId = view_id,
+    date_range = c(start_date, end_date),
+    dimensions = dimensions,
+    metrics = metrics,
+    order = list(
+      order_type(order[1], order[2])
+    ),
+    anti_sample = TRUE
+  ) 
   
   
   
@@ -278,24 +349,23 @@ send_data_to_bq <- function(
 
 get_ga_data_and_send_to_bq_batches <- function(
     
-    view_id, 
-    date_range = c(start_date, end_date), 
-    dimensions,
-    metrics,
-    order,
-    
-    dataset,
-    project_id,
-    write_disposition,
-    location,
-    expiration,
-    table = NULL,
-    anti_sample_batches = 1
+  view_id, 
+  date_range = c(start_date, end_date), 
+  dimensions,
+  metrics,
+  order,
   
-
+  dataset,
+  project_id,
+  write_disposition,
+  location,
+  expiration,
+  table = NULL,
+  anti_sample_batches = 1
+  
 ) {
   
-
+  
   
   startDate <- as.Date(date_range[1])
   endDate <- as.Date(date_range[2])
