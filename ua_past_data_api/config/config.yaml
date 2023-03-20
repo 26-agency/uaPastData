@@ -1,8 +1,0 @@
-auth_path: 
-  client_token: <CLIENT SECRET JSON>
-  service_account: <SERVICE ACCOUNT JSON>
-
-gcp:
-  project_id: <PROJECT ID>
-  gcs:
-    bucket_name: <BUCKET NAME>

@@ -1,0 +1,5 @@
+gsutil notification create -f json \
+    -t projects/datascience-twentysixdigital/topics/ua-past-data \
+    -e OBJECT_FINALIZE \
+    -p config/ \
+    gs://<BUCKET NAME>

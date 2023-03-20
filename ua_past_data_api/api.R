@@ -7,19 +7,6 @@ library(googleCloudRunner)
 # General
 library(yaml)
 
-#### Global Vars ####
-configFile <- 'config/config.yaml'
-config <- read_yaml(configFile)
-
-bucket <- config$gcp$gcs$bucket_name
-project_id <- config$gcp$project_id
-service_account <- config$auth_path$service_account
-
-script_name = "ua-past-data"
-image_name = paste0("gcr.io/",project_id,'/',script_name,"-r-docker")
-
-
-timeout <- 600
 
 #' @get /
 #' @html
